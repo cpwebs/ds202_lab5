@@ -22,11 +22,9 @@ library(ggmap)
 
 
 accidentData <- read.csv("https://raw.githubusercontent.com/xdaiISU/ds202materials/master/hwlabs/fars2017/accident.csv", stringsAsFactors = FALSE)
-
 personData <- read.csv("https://raw.githubusercontent.com/xdaiISU/ds202materials/master/hwlabs/fars2017/person.csv", stringsAsFactors = FALSE)
 
-accidentData
-personData
+
 ```
 
 ## 1. Are there some days of the week where more accidents happen than on others (use variable DAY_WEEK)?
@@ -41,7 +39,7 @@ It seems that the weekend time is where the most accidents happen. The day were 
 
 ```{r}
 acc1<-accidentData%>% mutate(HOUR=replace(HOUR, HOUR == 99, NA))
-ggplot(data = acc1)+stat_count(mapping = aes(x= HOUR))+ theme_bw()
+ggplot(data = acc1)+stat_count(mapping = aes(x= HOUR))+ theme_bw() + labs(title="Time of Day Accidents",x="Hour",y="Number of Accidents")
 ```
 The graph above shows accidets in each hour of the day. It seems that as it gets later in the day, more specifically between 10 am and 10 pm, the number of accidents increases each hour. The time of day with the most accidents seems to be 6 pm. This probably makes sense for the fact that a lot of people conclude their shifts at work around that time and may want to get home quickly, which could lead to an unforseen accident.  
 
@@ -87,19 +85,14 @@ USGLC <- read_xlsx('UnitedStatesGLC.xlsx')
 
 ```{r}
 states <- map_data('state')
-states
 
 counties <- map_data('county')
-
-accidentData %>% group_by(COUNTY, STATE) %>% summarise(number_of_case = nrow())
-
 
 combined <- full_join(states,counties,by=c("long","lat","region"))
 combined <- combined %>% rename("COUNTY" = "group.y")
 combined <- combined %>% rename("STATE" = "group.x")
 
 p8 <- merge(accidentData,combined,by=c("STATE","COUNTY"))
-p8
 
 ggplot(states,aes(x=long, y=lat)) + geom_path(aes(group=group)) 
 
@@ -112,7 +105,7 @@ ggplot(states,aes(x=long, y=lat)) + geom_path(aes(group=group))
 ## 9. Can you find seasonal trends in accident occurrences in different states? Is summer or winter more dangerous? Why?
 
 ```{r}
-accState <- accidentData %>% inner_join(per, by = c('ST_CASE', 'STATE', 'COUNTY'))
+accState <- accidentData %>% inner_join(personData, by = c('ST_CASE', 'STATE', 'COUNTY'))
 
 months <- accState %>% group_by(MONTH.x)%>% tally()
 
