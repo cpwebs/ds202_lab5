@@ -1,0 +1,134 @@
+---
+title: "Lab 5"
+author: "Cole Weber; cpwebs, Juan Simons; Giltbuckle3"
+date: "4/11/2020"
+output: html_document
+---
+
+```{r}
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ggmap)
+library(readr)
+library(lubridate)
+library(readxl)
+library(tidyverse)
+library(maps)
+library(ggmap)
+library(choroplethr) 
+library(choroplethrMaps)
+
+accidentData <- read.csv("https://raw.githubusercontent.com/xdaiISU/ds202materials/master/hwlabs/fars2017/accident.csv", stringsAsFactors = FALSE)
+
+personData <- read.csv("https://raw.githubusercontent.com/xdaiISU/ds202materials/master/hwlabs/fars2017/person.csv", stringsAsFactors = FALSE)
+
+accidentData
+personData
+```
+
+1. Are there some days of the week where more accidents happen than on others (use variable DAY_WEEK)?
+
+```{r}
+table(accidentData$DAY_WEEK)
+```
+
+It seems that the weekend time is where the most accidents happen. The day were the most hapen is Saturday followed by Sunday and then Friday. This makes sense because of the increaase of social activity and posibly drinking around the weekend as most people generally work during the week.  
+
+2. What time of the day do accidents happen (use variable HOUR)?
+
+```{r}
+acc1<-accidentData%>% mutate(HOUR=replace(HOUR, HOUR == 99, NA))
+ggplot(data = acc1)+stat_count(mapping = aes(x= HOUR))+ theme_bw()
+```
+The graph above shows accidets in each hour of the day. It seems that as it gets later in the day, more specifically between 10 am and 10 pm, the number of accidents increases each hour. The time of day with the most accidents seems to be 6 pm. This probably makes sense for the fact that a lot of people conclude their shifts at work around that time and may want to get home quickly, which could lead to an unforseen accident.  
+
+3. What is the number of accidents with at least one drunk driver (use variable DRUNK_DR)?
+
+```{r}
+table(accidentData$DRUNK_DR)
+```
+The numbers of accidents recorded with a single drunk driver is 8513. The total accidents recorded with at least one drunk driver involved is 8769.
+
+
+4. In the person table, dentify drivers (PER_TYP == 1, see FARS manual) and subset on them.
+
+```{r}
+personData <- subset(personData, PER_TYP == 1) 
+```
+
+5. Join accident and person table (work out which variable(s) to use)
+
+```{r}
+joinDF <- full_join(accidentData, personData, by =c("ST_CASE","STATE","VE_FORMS","COUNTY","DAY","MONTH","HOUR","MINUTE","RUR_URB","FUNC_SYS","HARM_EV","MAN_COLL","SCH_BUS"))
+```
+
+6. Tally the number of accidents by day of the week (DAY_WEEK), hour of the day (HOUR) and gender (SEX). Visualize the results.
+
+```{r}
+joinDF$SEX <- factor(joinDF$SEX)
+
+joinDF$SEX <- revalue(joinDF$SEX, c("1"="Male","2"="Female","8"="Not Reported","9"="Unknown"))
+
+joinDF %>% filter(HOUR<25) %>% ggplot(aes(x=HOUR, fill = factor(SEX))) + geom_bar(position = position_dodge()) + facet_wrap(~DAY_WEEK) + labs(title="Number of Accidents by Day of the Week, Hour of Day, and Gender", fill="Gender",y="Tally Number",x="Hour of Day")
+
+
+```
+
+7. Now plot a choropleth map of accidents on a county level
+
+```{r}
+USGLC <- read_xlsx('UnitedStatesGLC.xlsx')
+```
+
+8. Visualize the number of accidents in each county using a choropleth map. To do this, you need to join the accident data, GLCs, and appropriate map data.
+
+```{r}
+states <- map_data('state')
+states
+
+counties <- map_data('county')
+
+accidentData %>% group_by(COUNTY, STATE) %>% summarise(number_of_case = nrow())
+
+
+combined <- full_join(states,counties,by=c("long","lat","region"))
+combined <- combined %>% rename("COUNTY" = "group.y")
+combined <- combined %>% rename("STATE" = "group.x")
+
+p8 <- merge(accidentData,combined,by=c("STATE","COUNTY"))
+p8
+
+ggplot(states,aes(x=long, y=lat)) + geom_path(aes(group=group)) 
+
+
+
+```
+
+
+
+9. Can you find seasonal trends in accident occurrences in different states? Is summer or winter more dangerous? Why?
+
+```{r}
+accState <- accidentData %>% inner_join(per, by = c('ST_CASE', 'STATE', 'COUNTY'))
+
+months <- accState %>% group_by(MONTH.x)%>% tally()
+
+accState <- accState %>% right_join(months, by = "MONTH.x")
+
+accState1 <- accState %>% filter(STATE < 25)
+accState2 <- accState %>% filter(STATE < 51, STATE >= 25)
+
+ggplot(accState1, mapping = aes(x = MONTH.x, y = n, fill = MONTH.x))+ geom_bar(stat = "identity") + facet_wrap("STATE") + scale_fill_gradient(low = 'green', high = 'orange')+ ggtitle("Accidents per state on a monthly basis")+ ylab("Number of accidents")+ xlab("Month")
+
+ggplot(accState2, mapping = aes(x = MONTH.x, y = n, fill = MONTH.x))+ geom_bar(stat = "identity") + facet_wrap("STATE") + scale_fill_gradient(low = 'green', high = 'orange')+ ggtitle("Accidents per state on a monthly basis")+ ylab("Number of accidents")+ xlab("Month")
+
+```
+
+Firstly, I divided the graphs in two so it doesn't look too cluttered in a single graph since there are 50 states in the data set. 
+
+Secondly I made the months at the beginning of the year be the color year and as the year progresses to the later months, it turns orange. The default colors are not very good for visualization in my opinion. Now on to the analysis.  
+
+The number of accidents through the year seems to be stable as the year progresses. Although, it also seems that, in some states, the common misconception, which I also make, that winter is more dangerous to drive in because of snow, icy roads and other weather factors, is wrong. The increase in summer time accidents makes some sense because in summer there are more people on different roads as they go on vacation. In winter people do not usually stray far unless they have to and when one drives, one drives more carefully than when there is no snow; which leads to safer driving. 
+
